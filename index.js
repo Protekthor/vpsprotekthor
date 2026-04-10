@@ -1,24 +1,33 @@
-import express from "express";
-import dotenv from "dotenv";
-
-import routes from "./src/Routes/index.routes.js";
-import { notFound } from "./src/middlewares/notFound.middleware.js";
-import { errorHandler } from "./src/middlewares/error.middleware.js";
-
-dotenv.config({ path: "variables.env" });
+import express from 'express';
+import config from './src/config/index.js';
+import apiRoutes from './src/Routes/cvaRoutes.js';
+import { errorHandler } from './src/middlewares/errorHandler.js';
 
 const app = express();
 
+// Middlewares básicos
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(routes);
+// Rutas
+app.use('/api', apiRoutes);
 
-app.use(notFound);
+// Ruta raíz
+app.get('/', (req, res) => {
+  res.json({ message: 'VPS Integración CVA - Odoo', version: '1.0.0' });
+});
+
+// 404
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: 'Ruta no encontrada' });
+});
+
+// Error handler
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(` Servidor corriendo en puerto ${PORT}`);
+// Iniciar servidor
+app.listen(config.port, config.host, () => {
+  console.log(`Servidor corriendo en http://${config.host}:${config.port}`);
+  console.log(`Entorno: ${config.nodeEnv}`);
+  console.log(`Cliente CVA: ${config.cva.cliente}`);
 });

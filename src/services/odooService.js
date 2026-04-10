@@ -1,0 +1,68 @@
+import axios from 'axios';
+import config from '../config/index.js';
+
+class OdooService {
+  constructor() {
+    this.url = config.odoo.url;
+    this.db = config.odoo.db;
+    this.username = config.odoo.username;
+    this.apiKey = config.odoo.apiKey;
+  }
+
+  getHeaders() {
+    return {
+      Authorization: `bearer ${this.apiKey}`,
+      'Content-Type': 'application/json',
+      'X-Odoo-Database': this.db,
+    };
+  }
+
+  async call(model, method, params = {}) {
+    const endpoint = `${this.url}/json/2/${model}/${method}`;
+    try {
+      const response = await axios.post(endpoint, params, {
+        headers: this.getHeaders(),
+        timeout: 20000,
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Odoo call error (${model}.${method}):`, error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  async searchRead(model, domain, fields = [], limit = null) {
+    const params = { domain, fields };
+    if (limit) params.limit = limit;
+    return this.call(model, 'search_read', params);
+  }
+
+async create(model, valsList) {
+  // Siempre convertir a array (vals_list) como espera Odoo
+  const records = Array.isArray(valsList) ? valsList : [valsList];
+  return this.call(model, 'create', { vals_list: records });
+}
+  async update(model, ids, vals) {
+    return this.call(model, 'write', { ids: Array.isArray(ids) ? ids : [ids], vals });
+  }
+
+  // Métodos específicos para productos
+  async findProductBySku(sku) {
+    const result = await this.searchRead('product.template', [['default_code', '=', sku]], ['id', 'name', 'default_code'], 1);
+    return result && result.length ? result[0] : null;
+  }
+
+  async createProduct(productData) {
+    return this.create('product.template', productData);
+  }
+
+  async updateProduct(id, productData) {
+    return this.update('product.template', id, productData);
+  }
+
+  async getCurrentUser() {
+    return this.searchRead('res.users', [['login', '=', this.username]], ['id', 'name', 'login'], 1);
+  }
+}
+
+export default new OdooService();
