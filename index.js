@@ -25,6 +25,14 @@ app.use((req, res) => {
 // Error handler
 app.use(errorHandler);
 
+import cron from 'node-cron';
+import { procesarPedidosCVA } from './src/services/pedidoCvaSyncService.js';
+
+// ⏰ cada 1 minuto
+cron.schedule('* * * * *', async () => {
+  console.log('⏰ Ejecutando sincronización...');
+  await procesarPedidosCVA();
+});
 // Iniciar servidor
 app.listen(config.port, config.host, () => {
   console.log(`Servidor corriendo en http://${config.host}:${config.port}`);

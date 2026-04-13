@@ -63,6 +63,44 @@ async create(model, valsList) {
   async getCurrentUser() {
     return this.searchRead('res.users', [['login', '=', this.username]], ['id', 'name', 'login'], 1);
   }
+
+  // 🔥 Obtener pedidos no enviados
+async getPendingOrders() {
+  return this.searchRead(
+    'sale.order',
+    [
+      ['state', '=', 'sale'],
+      ['x_enviado_cva', '=', false]
+    ],
+    ['id', 'name', 'partner_id', 'order_line']
+  );
+}
+
+// 🔥 Obtener líneas de pedido
+async getOrderLines(lineIds) {
+  return this.searchRead(
+    'sale.order.line',
+    [['id', 'in', lineIds]],
+    ['id', 'product_id', 'product_uom_qty']
+  );
+}
+
+// 🔥 Obtener producto con clave CVA
+async getProduct(productId) {
+  const result = await this.searchRead(
+    'product.product',
+    [['id', '=', productId]],
+    ['id', 'x_cva_key']
+  );
+  return result[0];
+}
+
+// 🔥 Marcar pedido como enviado
+async markOrderAsSent(orderId) {
+  return this.update('sale.order', orderId, {
+    x_enviado_cva: true
+  });
+}
 }
 
 export default new OdooService();
