@@ -69,8 +69,7 @@ async getPendingOrders() {
   return this.searchRead(
     'sale.order',
     [
-      ['state', '=', 'sale'],
-     
+      ['x_studio_listo_para_cva', '=', true],
       ['x_studio_x_enviado_cva', '=', false]
     ],
     ['id', 'name', 'partner_id', 'order_line']
