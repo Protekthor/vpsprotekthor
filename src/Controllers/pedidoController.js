@@ -1,25 +1,39 @@
 import { createCVAPedido } from '../services/cvaSoapService.js';
 import odooService from '../services/odooService.js';
 
+// 🔹 Endpoint manual (ya lo tenías)
+export const crearPedidoCVA = async (req, res) => {
+  try {
+    const pedidoCVA = await createCVAPedido(req.body);
+    return res.json({ success: true, pedidoCVA });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// 🔥 WEBHOOK DE ODOO (NUEVO)
 export const recibirPedidoOdoo = async (req, res) => {
   try {
-    const { id, numOC } = req.body;
+    console.log('📥 Pedido recibido desde Odoo:', req.body);
 
-    console.log('📥 Pedido recibido:', numOC);
+    const { id, name, order_line } = req.body;
 
-    // 🔥 traer datos desde Odoo
-    const order = await odooService.searchRead(
-      'sale.order',
-      [['id', '=', id]],
-      ['id', 'name', 'order_line']
-    );
+    if (!id || !name || !order_line) {
+      return res.status(400).json({
+        success: false,
+        message: 'Datos incompletos desde Odoo'
+      });
+    }
 
-    const lines = await odooService.getOrderLines(order[0].order_line);
+    // 🔹 Obtener líneas completas desde Odoo
+    const lines = await odooService.getOrderLines(order_line);
 
     const productos = [];
 
     for (const line of lines) {
-      const product = await odooService.getProduct(line.product_id[0]);
+      const productId = line.product_id[0];
+
+      const product = await odooService.getProduct(productId);
 
       if (product?.x_cva_key) {
         productos.push({
@@ -29,25 +43,44 @@ export const recibirPedidoOdoo = async (req, res) => {
       }
     }
 
+    if (productos.length === 0) {
+      console.log('⚠️ Sin productos CVA');
+      return res.json({ success: false, message: 'Sin productos CVA' });
+    }
+
     const payload = {
-      numOC,
+      numOC: name,
       productos
     };
+
+    console.log('🚀 Enviando a CVA:', payload);
 
     const response = await createCVAPedido(payload);
 
     const estado = response.estado?.$value;
 
     if (estado === 'AFECTADO') {
+      console.log(`✅ Pedido ${name} confirmado en CVA`);
+
+      // 🔥 marcar como enviado
       await odooService.update('sale.order', id, {
         x_studio_x_enviado_cva: true
       });
+
+    } else {
+      console.log(`❌ Error CVA:`, response.error?.$value);
     }
 
-    return res.json({ success: true });
+    return res.json({
+      success: true,
+      cva: response
+    });
 
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ success: false });
+    console.error('❌ Error webhook:', error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 };
