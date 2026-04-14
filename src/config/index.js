@@ -24,11 +24,16 @@ const config = {
     baseUrl: 'http://www.grupocva.com/catalogo_clientes_xml/lista_precios.xml',
     cliente: process.env.CVA_CLIENTE, // Número de cliente (ej. 23534)
     // Opcional: otros parámetros por defecto
+
+
+  soapUser: process.env.CVA_SOAP_USER,
+  soapPassword: process.env.CVA_SOAP_PASSWORD,
     defaultParams: {
       porcentaje: 15, // ya que quieres incrementar 15% sobre el precio base
       MonedaPesos: 1, // precios en pesos mexicanos
       tc: 1, // tipo de cambio si aplica
     }
+    
   },
   
   sync: {

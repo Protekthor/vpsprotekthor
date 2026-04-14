@@ -5,8 +5,8 @@ const WSDL_URL = 'https://www.grupocva.com/pedidos_web/pedidos_ws_cva.php?wsdl';
 
 export async function createCVAPedido(pedidoData) {
   const client = await soap.createClientAsync(WSDL_URL);
-  
-  // Construir el XML del pedido según documentación de CVA
+
+  // 🔥 XML con valores seguros (sin undefined)
   const xmlPedido = `
     <PEDIDO>
       <NumOC>${pedidoData.numOC}</NumOC>
@@ -23,22 +23,30 @@ export async function createCVAPedido(pedidoData) {
         `).join('')}
       </productos>
       <TipoFlete>${pedidoData.tipoFlete || 'SF'}</TipoFlete>
-      <Calle>${pedidoData.calle}</Calle>
-      <Numero>${pedidoData.numero}</Numero>
+      <Calle>${pedidoData.calle || 'NA'}</Calle>
+      <Numero>${pedidoData.numero || '0'}</Numero>
       <NumeroInt>${pedidoData.numeroInt || ''}</NumeroInt>
-      <Colonia>${pedidoData.colonia}</Colonia>
-      <Estado>${pedidoData.estado}</Estado>
-      <Ciudad>${pedidoData.ciudad}</Ciudad>
-      <Atencion>${pedidoData.atencion}</Atencion>
+      <Colonia>${pedidoData.colonia || 'NA'}</Colonia>
+      <Estado>${pedidoData.estado || '1'}</Estado>
+      <Ciudad>${pedidoData.ciudad || '1'}</Ciudad>
+      <Atencion>${pedidoData.atencion || 'Cliente'}</Atencion>
     </PEDIDO>
   `;
 
   const args = {
-    Usuario: config.cva.soapUser,     // Tu usuario ME
-    PWD: config.cva.soapPassword,     // Tu contraseña ME
+    Usuario: config.cva.soapUser,
+    PWD: config.cva.soapPassword,
     XMLOC: xmlPedido
   };
 
   const result = await client.PedidoWebAsync(args);
-  return result[0]; // respuesta
+
+  // 🔥 DEBUG
+  console.log('📦 RESPUESTA CRUDA CVA:', result);
+
+  const response = result[0];
+
+  console.log('📦 RESPUESTA PROCESADA CVA:', response);
+
+  return response;
 }

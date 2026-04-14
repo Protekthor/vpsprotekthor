@@ -70,7 +70,8 @@ async getPendingOrders() {
     'sale.order',
     [
       ['state', '=', 'sale'],
-      ['x_enviado_cva', '=', false]
+     
+      ['x_studio_x_enviado_cva', '=', false]
     ],
     ['id', 'name', 'partner_id', 'order_line']
   );
@@ -98,7 +99,7 @@ async getProduct(productId) {
 // 🔥 Marcar pedido como enviado
 async markOrderAsSent(orderId) {
   return this.update('sale.order', orderId, {
-    x_enviado_cva: true
+    x_studio_x_enviado_cva: true
   });
 }
 }

@@ -3,8 +3,8 @@ import { createCVAPedido } from '../services/cvaSoapService.js';
 export const crearPedidoCVA = async (req, res) => {
   try {
     const pedidoCVA = await createCVAPedido(req.body);
-    res.json({ success: true, pedidoCVA });
+    return res.json({ success: true, pedidoCVA }); // 👈 IMPORTANTE
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message }); // 👈 IMPORTANTE
   }
 };
