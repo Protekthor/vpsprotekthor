@@ -101,6 +101,12 @@ async markOrderAsSent(orderId) {
     x_studio_x_enviado_cva: true
   });
 }
+
+async deleteOrderLine(lineId) {
+  return this.call('sale.order.line', 'unlink', {
+    ids: [lineId]
+  });
+}
 }
 
 export default new OdooService();

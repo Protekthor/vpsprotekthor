@@ -12,7 +12,6 @@ export const crearPedidoCVA = async (req, res) => {
   }
 };
 
-// 🔥 WEBHOOK DE ODOO
 export const recibirPedidoOdoo = async (req, res) => {
   try {
     console.log('📥 Pedido recibido desde Odoo:', req.body);
@@ -26,24 +25,27 @@ export const recibirPedidoOdoo = async (req, res) => {
       });
     }
 
-    // 🔹 Obtener líneas completas desde Odoo
     const lines = await odooService.getOrderLines(order_line);
 
     const productos = [];
-    const sinStock = new Set(); // 🔥 evita duplicados
+    const sinStock = new Set(); // 🔥 usar Set mejor
+    const lineMap = {}; // 🔥 RELACIÓN clave -> línea Odoo
 
-    // 🔥 VALIDACIÓN EN PARALELO (rápido)
-    await Promise.all(lines.map(async (line) => {
+    for (const line of lines) {
       const productId = line.product_id[0];
       const product = await odooService.getProduct(productId);
 
       if (product?.x_cva_key) {
+
+        // 🔥 guardar relación
+        lineMap[product.x_cva_key] = line.id;
+
         const cvaData = await cvaClient.getProductByClave(product.x_cva_key);
 
         if (!cvaData) {
-          console.log(`❌ Producto no encontrado: ${product.x_cva_key}`);
+          console.log(`❌ Producto no encontrado en CVA: ${product.x_cva_key}`);
           sinStock.add(product.x_cva_key);
-          return;
+          continue;
         }
 
         const disponible = parseInt(cvaData.disponible || 0);
@@ -53,13 +55,13 @@ export const recibirPedidoOdoo = async (req, res) => {
         if (stockTotal <= 0) {
           console.log(`❌ Sin stock: ${product.x_cva_key}`);
           sinStock.add(product.x_cva_key);
-          return;
+          continue;
         }
 
         if (line.product_uom_qty > stockTotal) {
-          console.log(`⚠️ Stock insuficiente: ${product.x_cva_key}`);
+          console.log(`⚠️ Stock insuficiente para ${product.x_cva_key}`);
           sinStock.add(product.x_cva_key);
-          return;
+          continue;
         }
 
         productos.push({
@@ -67,9 +69,25 @@ export const recibirPedidoOdoo = async (req, res) => {
           cantidad: line.product_uom_qty
         });
       }
-    }));
+    }
 
-    // 🔥 SI NO HAY PRODUCTOS VÁLIDOS
+    // 🔥 ELIMINAR LÍNEAS SIN STOCK EN ODOO
+    for (const clave of sinStock) {
+      const lineId = lineMap[clave];
+      if (lineId) {
+        await odooService.deleteOrderLine(lineId);
+        console.log(`🗑️ Eliminada línea en Odoo: ${clave}`);
+      }
+    }
+
+    // 🔥 AGREGAR NOTA EN ODOO
+    if (sinStock.size > 0) {
+      await odooService.update('sale.order', id, {
+        note: `❌ Productos sin stock eliminados: ${Array.from(sinStock).join(', ')}`
+      });
+    }
+
+    // 🔥 SI YA NO QUEDÓ NADA → CANCELAR ENVÍO
     if (productos.length === 0) {
       console.log('❌ Ningún producto con stock disponible');
 
@@ -80,6 +98,7 @@ export const recibirPedidoOdoo = async (req, res) => {
       });
     }
 
+    // 🔥 SI SÍ HAY PRODUCTOS → ENVIAR A CVA
     const payload = {
       numOC: name,
       productos
@@ -99,7 +118,7 @@ export const recibirPedidoOdoo = async (req, res) => {
       });
 
     } else {
-      console.log(`❌ Error CVA:`, response.error?.$value);
+      console.log('❌ Error CVA:', response.error?.$value);
     }
 
     return res.json({
