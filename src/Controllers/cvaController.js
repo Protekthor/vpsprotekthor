@@ -29,15 +29,36 @@ export const syncProducts = async (req, res, next) => {
     }
     
     
-    const results = {
-      total: cvaProducts.length,
-      created: 0,
-      updated: 0,
-      errors: [],
-      details: [],
-    };
+const results = {
+  total: cvaProducts.length,
+  con_stock: productosDisponibles.length,
+  sin_stock: productosSinStock.length,
+  created: 0,
+  updated: 0,
+  errors: [],
+  details: [],
+};
     
-    for (const cvaItem of cvaProducts) {
+
+    // 🔥 FILTRAR PRODUCTOS CON STOCK REAL
+const productosDisponibles = cvaProducts.filter(p => {
+  const disponible = parseInt(p.disponible || 0);
+  const disponibleCD = parseInt(p.disponibleCD || 0);
+
+  return disponible > 0 || disponibleCD > 0;
+});
+
+const productosSinStock = cvaProducts.filter(p => {
+  const disponible = parseInt(p.disponible || 0);
+  const disponibleCD = parseInt(p.disponibleCD || 0);
+
+  return disponible <= 0 && disponibleCD <= 0;
+});
+
+console.log(`✅ Con stock: ${productosDisponibles.length}`);
+console.log(`❌ Sin stock: ${productosSinStock.length}`);
+    
+for (const cvaItem of productosDisponibles) {
       try {
         // 1. Datos básicos del producto (incluye precio con +15%)
         const odooData = transformCvaToOdoo(cvaItem);
@@ -76,6 +97,7 @@ export const syncProducts = async (req, res, next) => {
       success: true,
       message: 'Sincronización completada',
       results,
+        sin_stock: productosSinStock.map(p => p.clave)
     });
   } catch (error) {
     next(error);
@@ -97,6 +119,7 @@ export const previewProducts = async (req, res, next) => {
   try {
     const { marca, grupo, clave, desc } = req.query;
     let products = [];
+
     if (clave) {
       const prod = await cvaClient.getProductByClave(clave);
       if (prod) products = [prod];
@@ -107,17 +130,28 @@ export const previewProducts = async (req, res, next) => {
     } else if (desc) {
       products = await cvaClient.searchProducts(desc);
     } else {
-      throw new Error('Se requiere al menos un parámetro de búsqueda: marca, grupo, clave o desc');
+      throw new Error('Se requiere al menos un parámetro de búsqueda');
     }
-    
-    // Transformar para mostrar precio con 15%
-    const preview = products.map(p => ({
-      original_price: parseFloat(p.precio),
-      final_price: +(parseFloat(p.precio) * 1.15).toFixed(2),
-      ...p
-    }));
-    
-    res.json({ success: true, count: preview.length, products: preview });
+
+    // 🔥 AQUÍ VA EL FILTRO (ya con products definido)
+    const preview = products
+      .filter(p => {
+        const disponible = parseInt(p.disponible || 0);
+        const disponibleCD = parseInt(p.disponibleCD || 0);
+        return disponible > 0 || disponibleCD > 0;
+      })
+      .map(p => ({
+        original_price: parseFloat(p.precio),
+        final_price: +(parseFloat(p.precio) * 1.15).toFixed(2),
+        ...p
+      }));
+
+    res.json({
+      success: true,
+      count: preview.length,
+      products: preview
+    });
+
   } catch (error) {
     next(error);
   }
