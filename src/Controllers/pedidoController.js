@@ -71,7 +71,7 @@ export const recibirPedidoOdoo = async (req, res) => {
       }
     }
 
-    // 🔥 ELIMINAR LÍNEAS SIN STOCK EN ODOO
+// 🔥 PONER EN 0 LÍNEAS SIN STOCK EN ODOO
     for (const clave of sinStock) {
       const lineId = lineMap[clave];
       if (lineId) {
@@ -82,23 +82,29 @@ export const recibirPedidoOdoo = async (req, res) => {
       }
     }
 
-    // 🔥 AGREGAR NOTA EN ODOO
-    if (sinStock.size > 0) {
-      await odooService.update('sale.order', id, {
-        note: `❌ Productos sin stock eliminados: ${Array.from(sinStock).join(', ')}`
-      });
-    }
+    // 🧾 AGREGAR NOTA EN ODOO
+if (sinStock.size > 0) {
+  await odooService.update('sale.order', id, {
+    note: `❌ Productos sin stock eliminados automáticamente: ${Array.from(sinStock).join(', ')}`
+  });
+}
 
-    // 🔥 SI YA NO QUEDÓ NADA → CANCELAR ENVÍO
-    if (productos.length === 0) {
-      console.log('❌ Ningún producto con stock disponible');
+// 🚨 MARCAR PEDIDO CON ERROR DE STOCK
+if (sinStock.size > 0) {
+  await odooService.update('sale.order', id, {
+    x_sin_stock: true
+  });
+}
+// 🚫 SI NO HAY PRODUCTOS VÁLIDOS → NO ENVIAR A CVA
+if (productos.length === 0) {
+  console.log('❌ Ningún producto con stock disponible');
 
-      return res.json({
-        success: false,
-        message: 'Ningún producto tiene stock disponible',
-        sin_stock: Array.from(sinStock)
-      });
-    }
+  return res.json({
+    success: false,
+    message: 'Ningún producto tiene stock disponible',
+    sin_stock: Array.from(sinStock)
+  });
+}
 
     // 🔥 SI SÍ HAY PRODUCTOS → ENVIAR A CVA
     const payload = {
