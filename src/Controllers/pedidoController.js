@@ -75,8 +75,10 @@ export const recibirPedidoOdoo = async (req, res) => {
     for (const clave of sinStock) {
       const lineId = lineMap[clave];
       if (lineId) {
-        await odooService.deleteOrderLine(lineId);
-        console.log(`🗑️ Eliminada línea en Odoo: ${clave}`);
+       await odooService.update('sale.order.line', lineId, {
+          product_uom_qty: 0
+        });
+        console.log(`🧹 Línea puesta en 0 en Odoo: ${clave}`);
       }
     }
 
