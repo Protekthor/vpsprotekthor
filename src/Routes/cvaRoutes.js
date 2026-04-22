@@ -1,6 +1,6 @@
 import express from 'express';
 import { syncProducts, testOdoo, previewProducts } from '../Controllers/cvaController.js';
-import { crearPedidoCVA, recibirPedidoOdoo } from '../Controllers/pedidoController.js';
+import { crearPedidoCVA, recibirPedidoOdoo,validarCarrito ,validarDesdeOdoo} from '../Controllers/pedidoController.js';
 
 const router = express.Router();
 
@@ -22,4 +22,8 @@ router.post('/crear-pedido-cva', crearPedidoCVA);
 // 🔥 WEBHOOK DESDE ODOO (IMPORTANTE)
 router.post('/webhook/odoo', recibirPedidoOdoo);
 
+router.post('/validar-carrito', validarCarrito);
+
+
+router.post('/validar-odoo', validarDesdeOdoo);
 export default router;

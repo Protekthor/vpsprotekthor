@@ -143,3 +143,103 @@ if (productos.length === 0) {
     });
   }
 };
+
+
+export const validarCarrito = async (req, res) => {
+  try {
+    const { productos } = req.body;
+
+    const sinStock = [];
+
+    for (const p of productos) {
+      const cva = await cvaClient.getProductByClave(p.clave);
+
+      if (!cva) {
+        sinStock.push(p.clave);
+        continue;
+      }
+
+      const disponible = parseInt(cva.disponible || 0);
+      const disponibleCD = parseInt(cva.disponibleCD || 0);
+      const total = disponible + disponibleCD;
+
+      if (total <= 0 || p.cantidad > total) {
+        sinStock.push(p.clave);
+      }
+    }
+
+    if (sinStock.length > 0) {
+      return res.json({
+        success: false,
+        message: 'Productos sin stock',
+        sinStock
+      });
+    }
+
+    return res.json({
+      success: true
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const validarDesdeOdoo = async (req, res) => {
+  try {
+    console.log("📥 Webhook Odoo:", req.body);
+
+    const { id, order_line } = req.body;
+
+    // 🔥 1. Obtener líneas reales desde Odoo
+    const lines = await odooService.getOrderLines(order_line);
+
+    const sinStock = [];
+
+    for (const line of lines) {
+      const productId = line.product_id[0];
+
+      // 🔥 2. Obtener producto
+      const product = await odooService.getProduct(productId);
+
+      const clave = product?.x_cva_key;
+
+      if (!clave) continue;
+
+      // 🔥 3. Consultar CVA
+      const cva = await cvaClient.getProductByClave(clave);
+
+      if (!cva) {
+        sinStock.push(clave);
+        continue;
+      }
+
+      const total =
+        parseInt(cva.disponible || 0) +
+        parseInt(cva.disponibleCD || 0);
+
+      if (total <= 0 || line.product_uom_qty > total) {
+        sinStock.push(clave);
+      }
+    }
+
+    // 🔥 4. Actualizar Odoo
+    if (sinStock.length > 0) {
+      await odooService.update('sale.order', id, {
+        x_sin_stock: true,
+        note: `❌ Sin stock: ${sinStock.join(', ')}`
+      });
+    } else {
+      await odooService.update('sale.order', id, {
+        x_sin_stock: false
+      });
+    }
+
+    return res.json({ success: true });
+
+  } catch (error) {
+    console.error("❌ Error:", error.message);
+    return res.status(500).json({ error: error.message });
+  }
+};
